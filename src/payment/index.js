@@ -4,7 +4,10 @@ const grpc = require('@grpc/grpc-js')
 const protoLoader = require('@grpc/proto-loader')
 const health = require('grpc-js-health-check')
 const opentelemetry = require('@opentelemetry/api')
+const { OpenFeature } = require('@openfeature/server-sdk')
+const { FlagdProvider } = require('@openfeature/flagd-provider')
 
+OpenFeature.setProvider(new FlagdProvider())
 const charge = require('./charge')
 const logger = require('./logger')
 
