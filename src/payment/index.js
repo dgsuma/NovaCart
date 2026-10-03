@@ -4,7 +4,10 @@ const grpc = require('@grpc/grpc-js')
 const protoLoader = require('@grpc/proto-loader')
 const health = require('grpc-js-health-check')
 const opentelemetry = require('@opentelemetry/api')
+const { OpenFeature } = require('@openfeature/server-sdk')
+const { FlagdProvider } = require('@openfeature/flagd-provider')
 
+OpenFeature.setProvider(new FlagdProvider())
 const charge = require('./charge')
 const logger = require('./logger')
 
@@ -13,7 +16,7 @@ async function chargeServiceHandler(call, callback) {
 
   try {
     const amount = call.request.amount
-    span.setAttributes({
+    span?.setAttributes({
       'app.payment.amount': parseFloat(`${amount.units}.${amount.nanos}`).toFixed(2)
     })
     logger.info({ request: call.request }, "Charge request received.")
@@ -24,9 +27,8 @@ async function chargeServiceHandler(call, callback) {
   } catch (err) {
     logger.warn({ err })
 
-    span.recordException(err)
-    span.setStatus({ code: opentelemetry.SpanStatusCode.ERROR })
-
+    span?.recordException(err)
+    span?.setStatus({ code: opentelemetry.SpanStatusCode.ERROR })
     callback(err)
   }
 }

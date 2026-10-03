@@ -18,21 +18,128 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 5,
+  "id": 3,
   "links": [],
   "panels": [
+    {
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 8,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "This dashboard shows the use of metric exemplars.\nExemplars can be used to look up a trace in Jaeger.\nOnly the most recent exemplars may still be available in Jaeger.\n<br>\nChart panels may require 5 minutes after the Demo is started before rendering data.",
+        "mode": "html"
+      },
+      "pluginVersion": "11.6.1",
+      "title": "",
+      "type": "text"
+    },
     {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 0
+        "y": 2
       },
       "id": 4,
       "panels": [],
       "title": "GetCart Exemplars",
       "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "webstore-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 3
+      },
+      "id": 2,
+      "interval": "2m",
+      "options": {
+        "calculate": false,
+        "cellGap": 1,
+        "color": {
+          "exponent": 0.5,
+          "fill": "dark-orange",
+          "mode": "scheme",
+          "reverse": false,
+          "scale": "exponential",
+          "scheme": "Spectral",
+          "steps": 64
+        },
+        "exemplars": {
+          "color": "rgba(255,0,255,0.7)"
+        },
+        "filterValues": {
+          "le": 1e-9
+        },
+        "legend": {
+          "show": true
+        },
+        "rowsFrame": {
+          "layout": "auto"
+        },
+        "tooltip": {
+          "mode": "single",
+          "showColorScale": false,
+          "yHistogram": false
+        },
+        "yAxis": {
+          "axisPlacement": "left",
+          "reverse": false
+        }
+      },
+      "pluginVersion": "11.6.1",
+      "targets": [
+        {
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "exemplar": true,
+          "expr": "sum by(le) (rate(app_cart_get_cart_latency_seconds_bucket[$__rate_interval]))",
+          "format": "heatmap",
+          "fullMetaSearch": false,
+          "includeNullMetadata": false,
+          "instant": true,
+          "legendFormat": "{{le}}",
+          "range": true,
+          "refId": "A",
+          "useBackend": false
+        }
+      ],
+      "title": "GetCart Latency Heatmap with Exemplars",
+      "type": "heatmap"
     },
     {
       "datasource": {
@@ -82,8 +189,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -98,7 +204,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 10
+        "y": 12
       },
       "id": 5,
       "interval": "2m",
@@ -110,11 +216,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "11.3.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -124,7 +231,7 @@
           "disableTextWrap": false,
           "editorMode": "builder",
           "exemplar": true,
-          "expr": "histogram_quantile(0.95, sum by(le) (rate(app_cart_get_cart_latency_bucket[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by(le) (rate(app_cart_get_cart_latency_seconds_bucket[$__rate_interval])))",
           "fullMetaSearch": false,
           "includeNullMetadata": false,
           "legendFormat": "p95 GetCart",
@@ -137,94 +244,12 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "webstore-metrics"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "scaleDistribution": {
-              "type": "linear"
-            }
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 24,
-        "x": 0,
-        "y": 1
-      },
-      "id": 2,
-      "interval": "2m",
-      "options": {
-        "calculate": false,
-        "cellGap": 1,
-        "color": {
-          "exponent": 0.5,
-          "fill": "dark-orange",
-          "mode": "scheme",
-          "reverse": false,
-          "scale": "exponential",
-          "scheme": "Spectral",
-          "steps": 64
-        },
-        "exemplars": {
-          "color": "rgba(255,0,255,0.7)"
-        },
-        "filterValues": {
-          "le": 1e-9
-        },
-        "legend": {
-          "show": true
-        },
-        "rowsFrame": {
-          "layout": "auto"
-        },
-        "tooltip": {
-          "mode": "single",
-          "showColorScale": false,
-          "yHistogram": false
-        },
-        "yAxis": {
-          "axisPlacement": "left",
-          "reverse": false
-        }
-      },
-      "pluginVersion": "11.3.0",
-      "targets": [
-        {
-          "disableTextWrap": false,
-          "editorMode": "builder",
-          "exemplar": true,
-          "expr": "sum by(le) (rate(app_cart_get_cart_latency_bucket[$__rate_interval]))",
-          "format": "heatmap",
-          "fullMetaSearch": false,
-          "includeNullMetadata": false,
-          "instant": true,
-          "legendFormat": "{{le}}",
-          "range": true,
-          "refId": "A",
-          "useBackend": false
-        }
-      ],
-      "title": "GetCart Latency Heatmap with Exemplars",
-      "type": "heatmap"
-    },
-    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 20
+        "y": 22
       },
       "id": 3,
       "panels": [],
@@ -255,7 +280,7 @@
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 21
+        "y": 23
       },
       "id": 6,
       "interval": "2m",
@@ -293,13 +318,13 @@
           "reverse": false
         }
       },
-      "pluginVersion": "11.3.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "disableTextWrap": false,
           "editorMode": "builder",
           "exemplar": true,
-          "expr": "sum by(le) (rate(app_cart_add_item_latency_bucket[$__rate_interval]))",
+          "expr": "sum by(le) (rate(app_cart_add_item_latency_seconds_bucket[$__rate_interval]))",
           "format": "heatmap",
           "fullMetaSearch": false,
           "includeNullMetadata": false,
@@ -361,8 +386,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -377,7 +401,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 30
+        "y": 32
       },
       "id": 1,
       "interval": "2m",
@@ -389,11 +413,12 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "single",
           "sort": "none"
         }
       },
-      "pluginVersion": "11.3.0",
+      "pluginVersion": "11.6.1",
       "targets": [
         {
           "datasource": {
@@ -403,7 +428,7 @@
           "disableTextWrap": false,
           "editorMode": "builder",
           "exemplar": true,
-          "expr": "histogram_quantile(0.95, sum by(le) (rate(app_cart_add_item_latency_bucket[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by(le) (rate(app_cart_add_item_latency_seconds_bucket[$__rate_interval])))",
           "fullMetaSearch": false,
           "includeNullMetadata": false,
           "legendFormat": "p95 AddItem",
@@ -417,19 +442,18 @@
     }
   ],
   "preload": false,
-  "schemaVersion": 40,
+  "schemaVersion": 41,
   "tags": [],
   "templating": {
     "list": []
   },
   "time": {
-    "from": "now-1h",
+    "from": "now-15m",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "browser",
   "title": "Cart Service Exemplars",
   "uid": "ce6sd46kfkglca",
-  "version": 1,
-  "weekStart": ""
+  "version": 1
 }
