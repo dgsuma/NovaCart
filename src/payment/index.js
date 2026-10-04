@@ -7,9 +7,20 @@ const opentelemetry = require('@opentelemetry/api')
 const { OpenFeature } = require('@openfeature/server-sdk')
 const { FlagdProvider } = require('@openfeature/flagd-provider')
 
-OpenFeature.setProvider(new FlagdProvider())
 const charge = require('./charge')
 const logger = require('./logger')
+
+async function initializeFlagd() {
+  try {
+    await OpenFeature.setProviderAndWait(new FlagdProvider())
+    logger.info('flagd provider initialized')
+  } catch (err) {
+    logger.warn(
+      { error: err.message },
+      'flagd provider not ready at startup; continuing while it reconnects'
+    )
+  }
+}
 
 async function chargeServiceHandler(call, callback) {
   const span = opentelemetry.trace.getActiveSpan();
@@ -47,12 +58,21 @@ server.addService(health.service, new health.Implementation({
 
 server.addService(otelDemoPackage.oteldemo.PaymentService.service, { charge: chargeServiceHandler })
 
-server.bindAsync(`0.0.0.0:${process.env['PAYMENT_PORT']}`, grpc.ServerCredentials.createInsecure(), (err, port) => {
-  if (err) {
-    return logger.error({ err })
-  }
+async function startServer() {
+  await initializeFlagd()
 
-  logger.info(`payment gRPC server started on port ${port}`)
+  server.bindAsync(`0.0.0.0:${process.env['PAYMENT_PORT']}`, grpc.ServerCredentials.createInsecure(), (err, port) => {
+    if (err) {
+      return logger.error({ err })
+    }
+
+    logger.info(`payment gRPC server started on port ${port}`)
+  })
+}
+
+startServer().catch(err => {
+  logger.error({ err }, 'payment service failed to start')
+  process.exitCode = 1
 })
 
 process.once('SIGINT', closeGracefully)
