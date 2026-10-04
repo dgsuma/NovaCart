@@ -67,6 +67,28 @@ pipeline {
             }
         }
 
+        stage('Payment: unit tests') {
+            steps {
+                sh '''
+                    set -eu
+
+                    docker run --rm \
+                        -v "$PWD:/workspace:ro" \
+                        node:22-slim \
+                        sh -c '
+                            mkdir -p /tmp/payment
+                            cp /workspace/src/payment/package.json /tmp/payment/
+                            cp /workspace/src/payment/package-lock.json /tmp/payment/
+                            cp /workspace/src/payment/charge.js /tmp/payment/
+                            cp /workspace/src/payment/charge.test.js /tmp/payment/
+                            cp /workspace/src/payment/logger.js /tmp/payment/
+                            cd /tmp/payment
+                            npm ci
+                            npm test
+                        '
+                '''
+            }
+        }
         stage('Docker: build frontend') {
             steps {
                 sh '''
