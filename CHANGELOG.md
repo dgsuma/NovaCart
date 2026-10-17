@@ -7,6 +7,12 @@ the release.
 
 ## Unreleased
 
+* [security] Remediate frontend OpenTelemetry HIGH vulnerabilities
+  ([NovaCart PR #19](https://github.com/dgsuma/NovaCart/pull/19)).
+  Validated Jenkins CI/CD, Trivy, GitOps deployment, checkout and
+  Grafana Tempo tracing. See
+  [Phase 5 security report](docs/security/frontend-opentelemetry-hardening-phase5.md).
+
 ## 2.1.3
 
 * [chore] Fix postgresql container
