@@ -75,7 +75,8 @@ pipeline {
                         }
 
                         if (previous != null && previous.result == 'SUCCESS' &&
-                            previous.description == "NOVACART_FULL_CI_V1:${env.GIT_SHA}") {
+                            (previous.description == "NOVACART_FULL_CI_V1:${env.GIT_SHA}" ||
+                             previous.description == "NOVACART_DOCS_ONLY_V1:${env.GIT_SHA}")) {
                             echo "Baseline diagnostic: repeated SHA in build #${previous.number}; full CI required."
                             candidate = null
                         }
