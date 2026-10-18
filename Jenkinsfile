@@ -104,14 +104,17 @@ pipeline {
                     if (env.BRANCH_NAME != 'main') {
                         echo 'Feature branch: full CI required.'
                     } else {
-                        def baseline = '0c935f4566ec6be89fff57cf19a2d7851ed0cc32'
+                        if (baselineSha == null) {
+                            echo 'Documentation change classification: FULL_CI (no trusted baseline).'
+                        } else {
+                            def classification = sh(
+                                returnStdout: true,
+                                script: "python3 ci/detect_docs_only.py ${baselineSha} ${env.GIT_SHA}"
+                            ).trim()
 
-                        def classification = sh(
-                            returnStdout: true,
-                            script: "python3 ci/detect_docs_only.py ${baseline} ${env.GIT_SHA}"
-                        ).trim()
+                            echo "Documentation change classification: ${classification}"
+                        }
 
-                        echo "Documentation change classification: ${classification}"
                         echo 'Detection-only mode: all existing CI/CD stages remain enabled.'
                     }
                 }
