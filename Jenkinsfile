@@ -65,8 +65,14 @@ pipeline {
                     def baselineSha = null
 
                     if (env.BRANCH_NAME == 'main') {
-                        def candidate = currentBuild.previousBuild
+                        def previous = currentBuild.previousBuild
+                        def candidate = previous
                         def inspected = 0
+
+                        if (previous != null && previous.result != 'SUCCESS') {
+                            echo "Baseline diagnostic: previous build #${previous.number} result=${previous.result}; full CI required."
+                            candidate = null
+                        }
                         def nowMillis = System.currentTimeMillis()
                         def maxAgeMillis = 7L * 24 * 60 * 60 * 1000
 
