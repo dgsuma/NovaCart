@@ -60,6 +60,7 @@ pipeline {
             steps {
                 script {
                     env.DOCS_ONLY = 'false'
+                    env.FULL_CI_COMPLETED = 'false'
 
                     def baselineSha = null
 
@@ -372,6 +373,14 @@ PY
                         fi
                     '''
                 }
+
+                script {
+                    if (env.BRANCH_NAME == 'main' &&
+                        env.DOCS_ONLY == 'false') {
+                        env.FULL_CI_COMPLETED = 'true'
+                        echo 'Full CI delivery stages completed.'
+                    }
+                }
             }
         }
     }
@@ -383,6 +392,7 @@ PY
             script {
                 if (env.BRANCH_NAME == 'main' &&
                     env.DOCS_ONLY == 'false' &&
+                    env.FULL_CI_COMPLETED == 'true' &&
                     env.GIT_SHA ==~ /^[0-9a-f]{40}$/) {
                     currentBuild.description = "NOVACART_FULL_CI_V1:${env.GIT_SHA}"
                     echo "Full CI validation marker recorded for ${env.GIT_SHORT}"
