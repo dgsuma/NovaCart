@@ -379,6 +379,17 @@ PY
     post {
         success {
             echo "NovaCart Phase-1 CI succeeded: ${IMAGE_TAG}"
+
+            script {
+                if (env.BRANCH_NAME == 'main' &&
+                    env.DOCS_ONLY == 'false' &&
+                    env.GIT_SHA ==~ /^[0-9a-f]{40}$/) {
+                    currentBuild.description = "NOVACART_FULL_CI_V1:${env.GIT_SHA}"
+                    echo "Full CI validation marker recorded for ${env.GIT_SHORT}"
+                } else {
+                    echo 'Full CI validation marker not applicable.'
+                }
+            }
         }
 
         failure {
