@@ -61,19 +61,45 @@ pipeline {
                 script {
                     env.DOCS_ONLY = 'false'
 
-                    def previous = currentBuild.previousBuild
+                    def baselineSha = null
 
-                    if (previous == null) {
-                        echo 'Baseline diagnostic: no previous build.'
-                    } else {
-                        echo "Baseline diagnostic: previous build #${previous.number}"
-                        echo "Baseline diagnostic: result=${previous.result}"
-                        echo "Baseline diagnostic: startTime=${previous.startTimeInMillis}"
-                        def older = previous.previousBuild
-                        echo "Baseline diagnostic: older build=${older == null ? '(none)' : older.number}"
-                        echo "Baseline diagnostic: description=${previous.description ?: '(none)'}"
+                    if (env.BRANCH_NAME == 'main') {
+                        def candidate = currentBuild.previousBuild
+                        def inspected = 0
+                        def nowMillis = System.currentTimeMillis()
+                        def maxAgeMillis = 7L * 24 * 60 * 60 * 1000
+
+                        while (candidate != null && inspected < 20) {
+                            inspected++
+
+                            def description = candidate.description ?: ''
+                            def marker = description =~ /^NOVACART_FULL_CI_V1:([0-9a-f]{40})$/
+
+                            if (description.startsWith('NOVACART_FULL_CI_V1:') &&
+                                !marker.matches()) {
+                                echo "Baseline diagnostic: malformed marker in build #${candidate.number}."
+                                break
+                            }
+
+                            if (candidate.result == 'SUCCESS' && marker.matches()) {
+                                def ageMillis = nowMillis - candidate.startTimeInMillis
+
+                                if (ageMillis >= 0 && ageMillis <= maxAgeMillis) {
+                                    baselineSha = marker[0][1]
+                                    echo "Baseline diagnostic: trusted build #${candidate.number}"
+                                    echo "Baseline diagnostic: SHA=${baselineSha}"
+                                }
+
+                                break
+                            }
+
+                            candidate = candidate.previousBuild
+                        }
+
+                        if (baselineSha == null) {
+                            echo "Baseline diagnostic: no recent trusted baseline in ${inspected} builds."
+                        }
                     }
-
                     if (env.BRANCH_NAME != 'main') {
                         echo 'Feature branch: full CI required.'
                     } else {
