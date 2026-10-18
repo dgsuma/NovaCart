@@ -73,6 +73,12 @@ pipeline {
                             echo "Baseline diagnostic: previous build #${previous.number} result=${previous.result}; full CI required."
                             candidate = null
                         }
+
+                        if (previous != null && previous.result == 'SUCCESS' &&
+                            previous.description == "NOVACART_FULL_CI_V1:${env.GIT_SHA}") {
+                            echo "Baseline diagnostic: repeated SHA in build #${previous.number}; full CI required."
+                            candidate = null
+                        }
                         def nowMillis = System.currentTimeMillis()
                         def maxAgeMillis = 7L * 24 * 60 * 60 * 1000
 
