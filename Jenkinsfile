@@ -68,6 +68,9 @@ pipeline {
                     } else {
                         echo "Baseline diagnostic: previous build #${previous.number}"
                         echo "Baseline diagnostic: result=${previous.result}"
+                        echo "Baseline diagnostic: startTime=${previous.startTimeInMillis}"
+                        def older = previous.previousBuild
+                        echo "Baseline diagnostic: older build=${older == null ? '(none)' : older.number}"
                         echo "Baseline diagnostic: description=${previous.description ?: '(none)'}"
                     }
 
