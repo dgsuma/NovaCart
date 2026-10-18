@@ -61,6 +61,16 @@ pipeline {
                 script {
                     env.DOCS_ONLY = 'false'
 
+                    def previous = currentBuild.previousBuild
+
+                    if (previous == null) {
+                        echo 'Baseline diagnostic: no previous build.'
+                    } else {
+                        echo "Baseline diagnostic: previous build #${previous.number}"
+                        echo "Baseline diagnostic: result=${previous.result}"
+                        echo "Baseline diagnostic: description=${previous.description ?: '(none)'}"
+                    }
+
                     if (env.BRANCH_NAME != 'main') {
                         echo 'Feature branch: full CI required.'
                     } else {
