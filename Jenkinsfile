@@ -47,6 +47,15 @@ pipeline {
             }
         }
 
+        stage('CI: classifier unit tests') {
+            steps {
+                sh '''
+                    set -eu
+                    PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover \
+                        -s ci -p 'test_*.py' -v
+                '''
+            }
+        }
         stage('CI: inspect documentation changes') {
             steps {
                 script {
