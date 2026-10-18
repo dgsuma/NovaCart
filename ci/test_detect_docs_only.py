@@ -40,7 +40,7 @@ class GitClassificationTests(unittest.TestCase):
     def test_documentation_only_merge(self):
         self.assertEqual(
             classify(DOCS_BASE, DOCS_HEAD),
-            "DOCS_ONLY",
+            "FULL_CI",
         )
 
     def test_mixed_code_and_documentation(self):
@@ -116,6 +116,89 @@ class TemporaryRepositoryTests(unittest.TestCase):
 
             with patch.dict(os.environ, {"GIT_DIR": str(repo / ".git")}):
                 self.assertEqual(classify(base, head), "FULL_CI")
+
+    def test_code_change_reverted_before_docs_update(self):
+        import os
+        import subprocess
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+
+            def run(*args):
+                return subprocess.run(
+                    ["git", *args],
+                    cwd=repo,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                ).stdout.strip()
+
+            run("init", "-q")
+            run("config", "user.name", "CI Test")
+            run("config", "user.email", "ci@example.test")
+
+            (repo / "src").mkdir()
+            (repo / "src" / "app.py").write_text("value = 1\n")
+            (repo / "README.md").write_text("Initial docs\n")
+            run("add", ".")
+            run("commit", "-qm", "initial")
+            base = run("rev-parse", "HEAD")
+
+            (repo / "src" / "app.py").write_text("value = 2\n")
+            run("commit", "-qam", "modify application")
+
+            (repo / "src" / "app.py").write_text("value = 1\n")
+            run("commit", "-qam", "revert application")
+
+            (repo / "README.md").write_text("Updated docs\n")
+            run("commit", "-qam", "update documentation")
+            head = run("rev-parse", "HEAD")
+
+            with patch.dict(os.environ, {"GIT_DIR": str(repo / ".git")}):
+                self.assertEqual(classify(base, head), "FULL_CI")
+
+    def test_multiple_documentation_only_commits(self):
+        import os
+        import subprocess
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+
+            def run(*args):
+                return subprocess.run(
+                    ["git", *args],
+                    cwd=repo,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                ).stdout.strip()
+
+            run("init", "-q")
+            run("config", "user.name", "CI Test")
+            run("config", "user.email", "ci@example.test")
+
+            (repo / "README.md").write_text("Initial documentation\n")
+            run("add", ".")
+            run("commit", "-qm", "initial")
+            base = run("rev-parse", "HEAD")
+
+            (repo / "README.md").write_text("Updated documentation\n")
+            run("commit", "-qam", "update readme")
+
+            (repo / "docs").mkdir()
+            (repo / "docs" / "guide.md").write_text("Guide\n")
+            run("add", ".")
+            run("commit", "-qm", "add guide")
+            head = run("rev-parse", "HEAD")
+
+            with patch.dict(os.environ, {"GIT_DIR": str(repo / ".git")}):
+                self.assertEqual(classify(base, head), "DOCS_ONLY")
 
     def test_missing_git_revision(self):
         self.assertEqual(
