@@ -88,14 +88,19 @@ pipeline {
 
                             def description = candidate.description ?: ''
                             def marker = description =~ /^NOVACART_FULL_CI_V1:([0-9a-f]{40})$/
+                            def docsMarker = description =~ /^NOVACART_DOCS_ONLY_V1:([0-9a-f]{40})$/
 
-                            if (description.startsWith('NOVACART_FULL_CI_V1:') &&
-                                !marker.matches()) {
-                                echo "Baseline diagnostic: malformed marker in build #${candidate.number}."
+                            if (candidate.result != 'SUCCESS') {
+                                echo "Baseline diagnostic: unsuccessful build #${candidate.number}; full CI required."
                                 break
                             }
 
-                            if (candidate.result == 'SUCCESS' && marker.matches()) {
+                            if (!marker.matches() && !docsMarker.matches()) {
+                                echo "Baseline diagnostic: missing or invalid marker in build #${candidate.number}; full CI required."
+                                break
+                            }
+
+                            if (marker.matches()) {
                                 def ageMillis = nowMillis - candidate.startTimeInMillis
 
                                 if (ageMillis >= 0 && ageMillis <= maxAgeMillis) {
