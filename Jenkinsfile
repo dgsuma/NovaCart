@@ -64,6 +64,18 @@ pipeline {
 
                     def baselineSha = null
 
+                    if (env.BRANCH_NAME != 'main') {
+                        def diagnosticPrevious = currentBuild.previousBuild
+
+                        if (diagnosticPrevious != null) {
+                            echo "SCM diagnostic: previous build #${diagnosticPrevious.number}"
+                            echo "SCM diagnostic: result=${diagnosticPrevious.result}"
+                            echo "SCM diagnostic: description=${diagnosticPrevious.description ?: '(none)'}"
+                        } else {
+                            echo 'SCM diagnostic: no previous build.'
+                        }
+                    }
+
                     if (env.BRANCH_NAME == 'main') {
                         def previous = currentBuild.previousBuild
                         def candidate = previous
