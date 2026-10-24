@@ -47,6 +47,21 @@ pipeline {
             }
         }
 
+        stage('CI: trusted library integration diagnostic') {
+            steps {
+                script {
+                    library 'novacart-ci'
+
+                    def accepted = verifyNovaCartBuildRevision(
+                        currentBuild.number - 1,
+                        env.GIT_SHA
+                    )
+
+                    echo "Trusted library diagnostic: accepted=${accepted}"
+                    echo 'Diagnostic-only: no CI stage skipping authorized.'
+                }
+            }
+        }
         stage('CI: classifier unit tests') {
             steps {
                 sh '''
