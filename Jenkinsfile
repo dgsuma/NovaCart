@@ -120,9 +120,19 @@ pipeline {
                                 def ageMillis = nowMillis - candidate.startTimeInMillis
 
                                 if (ageMillis >= 0 && ageMillis <= maxAgeMillis) {
-                                    baselineSha = marker[0][1]
-                                    echo "Baseline diagnostic: trusted build #${candidate.number}"
-                                    echo "Baseline diagnostic: SHA=${baselineSha}"
+                                    def expectedSha = marker[0][1]
+                                    def scmVerified = verifyNovaCartBuildRevision(
+                                        candidate.number,
+                                        expectedSha
+                                    )
+
+                                    if (scmVerified == true) {
+                                        baselineSha = expectedSha
+                                        echo "Baseline diagnostic: SCM-verified build #${candidate.number}"
+                                        echo "Baseline diagnostic: SHA=${baselineSha}"
+                                    } else {
+                                        echo "Baseline diagnostic: SCM verification rejected build #${candidate.number}; full CI required."
+                                    }
                                 }
 
                                 break
