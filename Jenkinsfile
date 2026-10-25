@@ -47,6 +47,123 @@ pipeline {
             }
         }
 
+        stage('CI: trusted library integration diagnostic') {
+            steps {
+                script {
+                    library 'novacart-ci'
+
+                    def accepted = verifyNovaCartBuildRevision(
+                        currentBuild.number - 1,
+                        env.GIT_SHA
+                    )
+
+                    echo "Trusted library diagnostic: accepted=${accepted}"
+                    echo 'Diagnostic-only: no CI stage skipping authorized.'
+                }
+            }
+        }
+        stage('CI: classifier unit tests') {
+            steps {
+                sh '''
+                    set -eu
+                    PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover \
+                        -s ci -p 'test_*.py' -v
+                '''
+            }
+        }
+        stage('CI: inspect documentation changes') {
+            steps {
+                script {
+                    env.DOCS_ONLY = 'false'
+                    env.FULL_CI_COMPLETED = 'false'
+
+                    def baselineSha = null
+
+
+                    if (env.BRANCH_NAME == 'main') {
+                        def previous = currentBuild.previousBuild
+                        def candidate = previous
+                        def inspected = 0
+
+                        if (previous != null && previous.result != 'SUCCESS') {
+                            echo "Baseline diagnostic: previous build #${previous.number} result=${previous.result}; full CI required."
+                            candidate = null
+                        }
+
+                        if (previous != null && previous.result == 'SUCCESS' &&
+                            (previous.description == "NOVACART_FULL_CI_V1:${env.GIT_SHA}" ||
+                             previous.description == "NOVACART_DOCS_ONLY_V1:${env.GIT_SHA}")) {
+                            echo "Baseline diagnostic: repeated SHA in build #${previous.number}; full CI required."
+                            candidate = null
+                        }
+                        def nowMillis = System.currentTimeMillis()
+                        def maxAgeMillis = 7L * 24 * 60 * 60 * 1000
+
+                        while (candidate != null && inspected < 20) {
+                            inspected++
+
+                            def description = candidate.description ?: ''
+                            def marker = description =~ /^NOVACART_FULL_CI_V1:([0-9a-f]{40})$/
+                            def docsMarker = description =~ /^NOVACART_DOCS_ONLY_V1:([0-9a-f]{40})$/
+
+                            if (candidate.result != 'SUCCESS') {
+                                echo "Baseline diagnostic: unsuccessful build #${candidate.number}; full CI required."
+                                break
+                            }
+
+                            if (!marker.matches() && !docsMarker.matches()) {
+                                echo "Baseline diagnostic: missing or invalid marker in build #${candidate.number}; full CI required."
+                                break
+                            }
+
+                            if (marker.matches()) {
+                                def ageMillis = nowMillis - candidate.startTimeInMillis
+
+                                if (ageMillis >= 0 && ageMillis <= maxAgeMillis) {
+                                    def expectedSha = marker[0][1]
+                                    def scmVerified = verifyNovaCartBuildRevision(
+                                        candidate.number,
+                                        expectedSha
+                                    )
+
+                                    if (scmVerified == true) {
+                                        baselineSha = expectedSha
+                                        echo "Baseline diagnostic: SCM-verified build #${candidate.number}"
+                                        echo "Baseline diagnostic: SHA=${baselineSha}"
+                                    } else {
+                                        echo "Baseline diagnostic: SCM verification rejected build #${candidate.number}; full CI required."
+                                    }
+                                }
+
+                                break
+                            }
+
+                            candidate = candidate.previousBuild
+                        }
+
+                        if (baselineSha == null) {
+                            echo "Baseline diagnostic: no recent trusted baseline in ${inspected} builds."
+                        }
+                    }
+                    if (env.BRANCH_NAME != 'main') {
+                        echo 'Feature branch: full CI required.'
+                    } else {
+                        if (baselineSha == null) {
+                            echo 'Documentation change classification: FULL_CI (no trusted baseline).'
+                        } else {
+                            def classification = sh(
+                                returnStdout: true,
+                                script: "python3 ci/detect_docs_only.py ${baselineSha} ${env.GIT_SHA}"
+                            ).trim()
+
+                            echo "Documentation change classification: ${classification}"
+                        }
+
+                        echo 'Detection-only mode: all existing CI/CD stages remain enabled.'
+                    }
+                }
+            }
+        }
         stage('Payment: syntax') {
             steps {
                 sh '''
@@ -303,6 +420,14 @@ PY
                         fi
                     '''
                 }
+
+                script {
+                    if (env.BRANCH_NAME == 'main' &&
+                        env.DOCS_ONLY == 'false') {
+                        env.FULL_CI_COMPLETED = 'true'
+                        echo 'Full CI delivery stages completed.'
+                    }
+                }
             }
         }
     }
@@ -310,6 +435,18 @@ PY
     post {
         success {
             echo "NovaCart Phase-1 CI succeeded: ${IMAGE_TAG}"
+
+            script {
+                if (env.BRANCH_NAME == 'main' &&
+                    env.DOCS_ONLY == 'false' &&
+                    env.FULL_CI_COMPLETED == 'true' &&
+                    env.GIT_SHA ==~ /^[0-9a-f]{40}$/) {
+                    currentBuild.description = "NOVACART_FULL_CI_V1:${env.GIT_SHA}"
+                    echo "Full CI validation marker recorded for ${env.GIT_SHORT}"
+                } else {
+                    echo 'Full CI validation marker not applicable.'
+                }
+            }
         }
 
         failure {
