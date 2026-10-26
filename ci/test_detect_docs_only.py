@@ -37,10 +37,10 @@ class DocumentationPathTests(unittest.TestCase):
 
 class GitClassificationTests(unittest.TestCase):
 
-    def test_documentation_only_merge(self):
+    def test_historical_documentation_only_merge(self):
         self.assertEqual(
             classify(DOCS_BASE, DOCS_HEAD),
-            "FULL_CI",
+            "DOCS_ONLY",
         )
 
     def test_mixed_code_and_documentation(self):
@@ -206,3 +206,162 @@ class TemporaryRepositoryTests(unittest.TestCase):
                      DOCS_HEAD),
             "FULL_CI",
         )
+
+    def test_real_documentation_only_pr_merge(self):
+        self.assertEqual(
+            classify(
+                "83703dfa20da462c758fcbd6ad32dc67a1cdf710",
+                "d9bf21894ceee85e1bc5d7981ba58e2810253a1a",
+            ),
+            "DOCS_ONLY",
+        )
+
+    def test_merge_containing_application_change(self):
+        import os
+        import subprocess
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+
+            def run(*args):
+                return subprocess.run(
+                    ["git", *args],
+                    cwd=repo,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                ).stdout.strip()
+
+            run("init", "-q")
+            run("config", "user.name", "CI Test")
+            run("config", "user.email", "ci@example.test")
+
+            (repo / "src").mkdir()
+            (repo / "docs").mkdir()
+            (repo / "src" / "app.py").write_text("value = 1\n")
+            run("add", ".")
+            run("commit", "-qm", "initial")
+            base = run("rev-parse", "HEAD")
+
+            run("checkout", "-qb", "feature")
+            (repo / "src" / "app.py").write_text("value = 2\n")
+            run("commit", "-qam", "modify application")
+
+            run("checkout", "-q", "-")
+            (repo / "docs" / "guide.md").write_text("Documentation\n")
+            run("add", ".")
+            run("commit", "-qm", "add documentation")
+
+            run("merge", "--no-ff", "-m", "merge feature", "feature")
+            head = run("rev-parse", "HEAD")
+
+            with patch.dict(os.environ, {"GIT_DIR": str(repo / ".git")}):
+                self.assertEqual(classify(base, head), "FULL_CI")
+
+    def test_merge_reverts_hidden_application_change(self):
+        import os
+        import subprocess
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+
+            def run(*args):
+                return subprocess.run(
+                    ["git", *args],
+                    cwd=repo,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                ).stdout.strip()
+
+            run("init", "-q")
+            run("config", "user.name", "CI Test")
+            run("config", "user.email", "ci@example.test")
+
+            (repo / "src").mkdir()
+            (repo / "docs").mkdir()
+            app = repo / "src" / "app.py"
+            app.write_text("value = 1\n")
+
+            run("add", ".")
+            run("commit", "-qm", "initial")
+            base = run("rev-parse", "HEAD")
+
+            run("checkout", "-qb", "feature")
+            app.write_text("value = 2\n")
+            run("commit", "-qam", "change application")
+
+            run("checkout", "-q", "-")
+            (repo / "docs" / "guide.md").write_text("Documentation\n")
+            run("add", ".")
+            run("commit", "-qm", "add documentation")
+
+            run("merge", "--no-ff", "--no-commit", "-s", "ours", "feature")
+            run("commit", "-qm", "merge feature without application change")
+            head = run("rev-parse", "HEAD")
+
+            self.assertEqual(
+                run("diff", "--name-only", base, head),
+                "docs/guide.md",
+            )
+
+            with patch.dict(os.environ, {"GIT_DIR": str(repo / ".git")}):
+                self.assertEqual(classify(base, head), "FULL_CI")
+
+    def test_merge_resolution_introduces_application_change(self):
+        import os
+        import subprocess
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+
+            def run(*args):
+                return subprocess.run(
+                    ["git", *args],
+                    cwd=repo,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                ).stdout.strip()
+
+            run("init", "-q")
+            run("config", "user.name", "CI Test")
+            run("config", "user.email", "ci@example.test")
+
+            (repo / "src").mkdir()
+            (repo / "docs").mkdir()
+            app = repo / "src" / "app.py"
+            app.write_text("value = 1\n")
+            run("add", ".")
+            run("commit", "-qm", "initial")
+            base = run("rev-parse", "HEAD")
+
+            run("checkout", "-qb", "feature")
+            (repo / "docs" / "feature.md").write_text("Feature docs\n")
+            run("add", ".")
+            run("commit", "-qm", "feature documentation")
+
+            run("checkout", "-q", "-")
+            (repo / "docs").mkdir(exist_ok=True)
+            (repo / "docs" / "main.md").write_text("Main docs\n")
+            run("add", ".")
+            run("commit", "-qm", "main documentation")
+
+            run("merge", "--no-ff", "--no-commit", "feature")
+
+            app.write_text("value = 2\n")
+            run("add", ".")
+            run("commit", "-qm", "merge with application change")
+            head = run("rev-parse", "HEAD")
+
+            with patch.dict(os.environ, {"GIT_DIR": str(repo / ".git")}):
+                self.assertEqual(classify(base, head), "FULL_CI")
