@@ -46,26 +46,32 @@ def classify(base, head):
     if ancestry.returncode != 0:
         return "FULL_CI"
 
-    merges = git("rev-list", "--min-parents=2", f"{base}..{head}")
-    if merges.returncode != 0 or merges.stdout.strip():
+    commits = git("rev-list", "--parents", f"{base}..{head}")
+    if commits.returncode != 0 or not commits.stdout.strip():
         return "FULL_CI"
 
-    history = git(
-        "log", "--format=", "--name-only", "--no-renames",
-        "-z", f"{base}..{head}",
-    )
-    if history.returncode != 0:
-        return "FULL_CI"
+    for line in commits.stdout.decode("ascii").splitlines():
+        revision, *parents = line.split()
 
-    changed_paths = [
-        path.decode("utf-8", errors="surrogateescape")
-        for path in history.stdout.split(b"\0")
-        if path
-    ]
-    if not changed_paths or not all(
-        is_documentation(path) for path in changed_paths
-    ):
-        return "FULL_CI"
+        if not parents:
+            return "FULL_CI"
+
+        for parent in parents:
+            changes = git(
+                "diff", "--name-only", "--no-renames",
+                "-z", parent, revision, "--",
+            )
+            if changes.returncode != 0:
+                return "FULL_CI"
+
+            paths = [
+                path.decode("utf-8", errors="surrogateescape")
+                for path in changes.stdout.split(b"\0")
+                if path
+            ]
+
+            if not all(is_documentation(path) for path in paths):
+                return "FULL_CI"
 
     result = git(
         "diff",
