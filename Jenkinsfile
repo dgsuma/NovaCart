@@ -62,6 +62,30 @@ pipeline {
                 }
             }
         }
+        stage('CI: registry tooling diagnostic') {
+            steps {
+                sh '''
+                    set -eu
+
+                    echo "=== Docker ==="
+                    docker --version
+
+                    echo "=== Docker Buildx ==="
+                    if docker buildx version; then
+                        echo "Buildx available"
+                    else
+                        echo "Buildx unavailable"
+                    fi
+
+                    echo "=== Trivy ==="
+                    trivy --version
+
+                    echo "=== Optional registry tools ==="
+                    command -v skopeo || true
+                    command -v crane || true
+                '''
+            }
+        }
         stage('CI: classifier unit tests') {
             steps {
                 sh '''
