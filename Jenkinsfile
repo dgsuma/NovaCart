@@ -21,6 +21,7 @@ pipeline {
         BASELINE_SHA       = ''
         BASELINE_BUILD     = ''
         REGISTRY_REUSE_DIAGNOSTIC = 'FULL_CI_REQUIRED'
+        REGISTRY_EVIDENCE_VALIDATED = 'false'
     }
 
     stages {
@@ -366,6 +367,7 @@ pipeline {
                     )
 
                     if (result == 0) {
+                        env.REGISTRY_EVIDENCE_VALIDATED = 'true'
                         echo 'Registry evidence diagnostic: generated and verified.'
                     } else {
                         sh 'rm -f registry-evidence.json'
@@ -513,6 +515,44 @@ PY
                 } else {
                     echo 'Full CI validation marker not applicable.'
                 }
+                if (env.BRANCH_NAME == 'main' &&
+                    env.DOCS_ONLY == 'false' &&
+                    env.FULL_CI_COMPLETED == 'true' &&
+                    env.REGISTRY_EVIDENCE_VALIDATED == 'true' &&
+                    env.GIT_SHA ==~ /^[0-9a-f]{40}$/) {
+
+                    sh '''
+                        set -eu
+
+                        PYTHONDONTWRITEBYTECODE=1 python3 -c '
+import json
+import os
+import sys
+sys.path.insert(0, "ci")
+from registry_evidence import validate_evidence
+
+with open("registry-evidence.json", encoding="utf-8") as stream:
+    evidence = json.load(stream)
+
+if not validate_evidence(
+    evidence, os.environ["GIT_SHA"], int(os.environ["BUILD_NUMBER"])
+):
+    raise SystemExit("Registry evidence validation failed")
+'
+                    '''
+
+                    archiveArtifacts(
+                        artifacts: 'registry-evidence.json',
+                        allowEmptyArchive: false,
+                        fingerprint: true
+                    )
+
+                    echo 'Registry evidence archived successfully.'
+                } else {
+                    echo 'Registry evidence archival not applicable.'
+                }
+
+
             }
         }
 
@@ -520,7 +560,7 @@ PY
             echo 'NovaCart Phase-1 CI failed — inspect the failed stage.'
         }
 
-        always {
+        cleanup {
             sh '''
                 if [ -n "${FRONTEND_REF:-}" ]; then
                     docker image rm -f "${FRONTEND_REF}" || true
