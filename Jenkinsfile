@@ -18,6 +18,9 @@ pipeline {
         IMAGE_ORG          = 'dgsuma'
         FRONTEND_IMAGE     = 'novacart-frontend'
         PAYMENT_IMAGE      = 'novacart-payment'
+        BASELINE_SHA       = ''
+        BASELINE_BUILD     = ''
+        REGISTRY_REUSE_DIAGNOSTIC = 'FULL_CI_REQUIRED'
     }
 
     stages {
@@ -152,6 +155,8 @@ pipeline {
 
                                     if (scmVerified == true) {
                                         baselineSha = expectedSha
+                                        env.BASELINE_SHA = expectedSha
+                                        env.BASELINE_BUILD = candidate.number.toString()
                                         echo "Baseline diagnostic: SCM-verified build #${candidate.number}"
                                         echo "Baseline diagnostic: SHA=${baselineSha}"
                                     } else {
@@ -293,17 +298,21 @@ pipeline {
                         passwordVariable: 'GHCR_TOKEN'
                     )
                 ]) {
-                    sh '''
-                        set -eu
+                    sh '''#!/usr/bin/env bash
+                        set -euo pipefail
 
+                        rm -f frontend-push.log payment-push.log
                         trap 'docker logout "$REGISTRY" >/dev/null 2>&1 || true' EXIT
 
                         echo "$GHCR_TOKEN" | docker login "$REGISTRY" \
                             -u "$GHCR_USER" \
                             --password-stdin
 
-                        docker push "${FRONTEND_REF}"
-                        docker push "${PAYMENT_REF}"
+                        docker push "${FRONTEND_REF}" 2>&1 |
+                            tee frontend-push.log
+
+                        docker push "${PAYMENT_REF}" 2>&1 |
+                            tee payment-push.log
                     '''
                 }
             }
@@ -331,6 +340,40 @@ pipeline {
             }
         }
 
+        stage('CI: registry evidence diagnostic') {
+            when {
+                branch 'main'
+            }
+
+            steps {
+                script {
+                    env.REGISTRY_REUSE_DIAGNOSTIC = 'FULL_CI_REQUIRED'
+
+                    int result = sh(
+                        returnStatus: true,
+                        script: '''
+                            set -eu
+
+                            rm -f registry-evidence.json
+
+                            python3 ci/registry_evidence.py \
+                                --source-sha "$GIT_SHA" \
+                                --build-number "$BUILD_NUMBER" \
+                                --frontend-log frontend-push.log \
+                                --payment-log payment-push.log \
+                                --output registry-evidence.json
+                        '''
+                    )
+
+                    if (result == 0) {
+                        echo 'Registry evidence diagnostic: generated and verified.'
+                    } else {
+                        sh 'rm -f registry-evidence.json'
+                        echo 'Registry evidence diagnostic: unavailable; full CI required.'
+                    }
+                }
+            }
+        }
         stage('GitOps: update NovaCart images') {
             when {
                 branch 'main'
@@ -487,6 +530,7 @@ PY
                     docker image rm -f "${PAYMENT_REF}" || true
                 fi
 
+                rm -f frontend-push.log payment-push.log registry-evidence.json
                 rm -f .git-askpass.sh
                 rm -rf gitops-repo
             '''
