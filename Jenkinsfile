@@ -560,7 +560,7 @@ if not validate_evidence(
             echo 'NovaCart Phase-1 CI failed — inspect the failed stage.'
         }
 
-        always {
+        cleanup {
             sh '''
                 if [ -n "${FRONTEND_REF:-}" ]; then
                     docker image rm -f "${FRONTEND_REF}" || true
