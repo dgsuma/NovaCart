@@ -21,7 +21,6 @@ pipeline {
         BASELINE_SHA       = ''
         BASELINE_BUILD     = ''
         REGISTRY_REUSE_DIAGNOSTIC = 'FULL_CI_REQUIRED'
-        REGISTRY_EVIDENCE_VALIDATED = 'false'
     }
 
     stages {
